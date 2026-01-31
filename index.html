@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evil Finance Dashboard</title>
+    <title>Evil Finance Dashboard - Cloud Sync</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
     <style>
         :root {
             --primary: #6C5CE7;
@@ -57,8 +60,6 @@
         .container { max-width: 1200px; margin: auto; padding: 0 20px; }
         .card { background: white; border-radius: 25px; padding: 25px; box-shadow: var(--shadow-3d); transition: 0.4s; }
         .grid-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-        
-        /* ปรับเป็น Grid 4 คอลัมน์สำหรับหมวดหมู่ที่มากขึ้น */
         .grid-buckets { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
 
         .summary-banner {
@@ -74,6 +75,7 @@
             background: #fff; height: 80px; border-radius: 18px; position: relative;
             display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #eee;
         }
+        .day:hover { background: #f0f0f0; }
         .badge {
             position: absolute; top: 5px; right: 5px; background: var(--danger);
             color: white; font-size: 10px; width: 18px; height: 18px; border-radius: 50%;
@@ -195,20 +197,13 @@
 <div class="modal" id="detailsModal">
     <div class="modal-content">
         <h3 id="detailDateLabel">วันที่</h3>
-        <div id="dayList" style="max-height: 200px; overflow-y:auto;"></div>
+        <div id="dayList" style="max-height: 250px; overflow-y:auto;"></div>
         <button class="btn" style="width:100%; margin-top:15px;" onclick="closeDetails()">ปิด</button>
     </div>
 </div>
 
 <script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-
-<script>
-    // 1. Firebase Config
+    // 1. FIREBASE CONFIGURATION
     const firebaseConfig = {
         apiKey: "AIzaSyCTQ0vitnT_jBCF4KcMm1rwTJjwb_KLejc",
         authDomain: "evil-finance-app.firebaseapp.com",
@@ -224,41 +219,46 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 2. Global Variables
+    // 2. APP STATE
     const CORRECT_PIN = "000000";
     let currentPin = "";
-    let records = []; // ตัวแปรหลักสำหรับเก็บข้อมูล
+    let records = []; 
     let currentDate = new Date();
     let barChart, doughnutChart;
 
     const catInfo = {
+        income: { color: '#2ecc71', label: 'Income' },
         safety: { color: '#6C5CE7', label: 'Safety' },
-        invest_stock: { color: '#00cec9', label: 'Stock (Inv)', isInvest: true },
-        invest_funds: { color: '#0fbcf9', label: 'Funds (Inv)', isInvest: true },
-        invest_gold: { color: '#ffdd59', label: 'Gold (Inv)', isInvest: true },
-        invest_etc: { color: '#485460', label: 'Etc. (Inv)', isInvest: true },
+        invest_stock: { color: '#00cec9', label: 'Stocks (Inv)' },
+        invest_funds: { color: '#0fbcf9', label: 'Funds (Inv)' },
+        invest_gold: { color: '#ffdd59', label: 'Gold (Inv)' },
+        invest_etc: { color: '#485460', label: 'Etc. (Inv)' },
         flex: { color: '#fdcb6e', label: 'Flex' },
         fixed: { color: '#ff7675', label: 'Fixed' },
         lock: { color: '#d63031', label: 'Emergency' }
     };
 
-    // 3. Data Logic (Firebase)
+    // 3. CORE FUNCTIONS
     function loadDataFromFirebase() {
         db.ref('fin_records').on('value', (snapshot) => {
             const data = snapshot.val();
             records = data ? Object.values(data) : [];
-            updateUI(); 
+            updateUI();
         });
     }
 
     function sync() {
-        // บันทึกลง Firebase
         db.ref('fin_records').set(records);
-        // สำรองไว้ในเครื่องด้วย (เผื่อฉุกเฉิน)
-        localStorage.setItem('fin_v5_recs', JSON.stringify(records));
     }
 
-    // 4. UI Functions
+    function updateUI() {
+        renderStats();
+        renderCalendar();
+        renderBuckets();
+        updateCharts();
+    }
+
+    // --- AUTH LOGIC ---
     function pressNum(num) {
         if (num === 'C') { currentPin = ""; }
         else if (currentPin.length < 6) { currentPin += num; }
@@ -268,19 +268,19 @@
                 document.getElementById('loginScreen').style.transform = 'translateY(-100%)';
                 document.getElementById('mainApp').style.display = 'block';
                 setTimeout(() => { document.getElementById('loginScreen').style.display = 'none'; }, 500);
-            } else { alert("รหัส PIN ไม่ถูกต้อง!"); clearPin(); }
+            } else { 
+                alert("รหัส PIN ไม่ถูกต้อง!"); 
+                clearPin(); 
+            }
         }
     }
-
     function updatePinDots() {
         const dots = document.querySelectorAll('.pin-dot');
-        dots.forEach((dot, i) => {
-            if (i < currentPin.length) dot.classList.add('active');
-            else dot.classList.remove('active');
-        });
+        dots.forEach((dot, i) => i < currentPin.length ? dot.classList.add('active') : dot.classList.remove('active'));
     }
     function clearPin() { currentPin = ""; updatePinDots(); }
 
+    // --- DASHBOARD LOGIC ---
     function saveRecord() {
         const r = {
             id: Date.now(),
@@ -290,23 +290,25 @@
             type: document.getElementById('formType').value,
             category: document.getElementById('formCat').value
         };
-        if(!r.date || !r.amount) return alert('กรุณากรอกข้อมูล');
+        if(!r.date || isNaN(r.amount)) return alert('กรุณากรอกข้อมูลให้ครบถ้วน');
         records.push(r);
         sync();
         closeModal();
     }
 
-    function updateUI() {
-        renderStats();
-        renderCalendar();
-        updateCharts();
-        renderBuckets();
+    function deleteRecord(id) {
+        if(confirm('ยืนยันการลบรายการนี้?')) {
+            records = records.filter(x => x.id !== id);
+            sync();
+            closeDetails();
+        }
     }
 
     function renderStats() {
         const selectedMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
         const previousRecs = records.filter(r => new Date(r.date) < selectedMonthStart);
         const carryOver = previousRecs.reduce((sum, r) => r.type === 'income' ? sum + r.amount : sum - r.amount, 0);
+        
         const monthStr = currentDate.toISOString().slice(0, 7);
         const mRecs = records.filter(r => r.date.startsWith(monthStr));
         const mInc = mRecs.filter(r => r.type === 'income').reduce((a,b)=>a+b.amount,0);
@@ -323,7 +325,8 @@
         const mStr = currentDate.toISOString().slice(0, 7);
         const mRecs = records.filter(r => r.date.startsWith(mStr));
 
-        Object.keys(catInfo).forEach(cat => {
+        const categoriesToShow = ['safety', 'invest_stock', 'invest_funds', 'invest_gold', 'invest_etc', 'flex', 'fixed', 'lock'];
+        categoriesToShow.forEach(cat => {
             const spent = mRecs.filter(r => r.category === cat && r.type === 'expense').reduce((a,b)=>a+b.amount,0);
             container.innerHTML += `
                 <div class="card" style="padding:15px; border-left: 5px solid ${catInfo[cat].color}">
@@ -338,14 +341,15 @@
         grid.innerHTML = '';
         const y = currentDate.getFullYear(), m = currentDate.getMonth();
         document.getElementById('monthLabel').innerText = new Intl.DateTimeFormat('th-TH', {month:'long', year:'numeric'}).format(currentDate);
+        
         const first = new Date(y, m, 1).getDay();
         const days = new Date(y, m+1, 0).getDate();
 
         for(let i=0; i<first; i++) grid.innerHTML += '<div></div>';
         for(let d=1; d<=days; d++) {
             const dStr = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-            const count = records.filter(r => r.date === dStr).length;
-            const badge = count > 0 ? `<div class="badge">${count}</div>` : '';
+            const dayRecords = records.filter(r => r.date === dStr);
+            const badge = dayRecords.length > 0 ? `<div class="badge">${dayRecords.length}</div>` : '';
             grid.innerHTML += `<div class="day" onclick="showDay('${dStr}')">${badge}<strong>${d}</strong></div>`;
         }
     }
@@ -375,53 +379,45 @@
     function updateCharts() {
         const mStr = currentDate.toISOString().slice(0, 7);
         const mRecs = records.filter(r => r.date.startsWith(mStr));
+        
         const inc = mRecs.filter(r => r.type === 'income').reduce((a,b)=>a+b.amount,0);
         const exp = mRecs.filter(r => r.type === 'expense').reduce((a,b)=>a+b.amount,0);
-        if(barChart) {
-            barChart.data.datasets[0].data = [inc, exp];
-            barChart.update();
-        }
+        barChart.data.datasets[0].data = [inc, exp];
+        barChart.update();
 
-        const getCatSum = (cat) => mRecs.filter(r => r.category === cat && r.type === 'expense').reduce((a,b)=>a+b.amount,0);
-        const investSum = getCatSum('invest_stock') + getCatSum('invest_funds') + getCatSum('invest_gold') + getCatSum('invest_etc');
+        const getSum = (cat) => mRecs.filter(r => r.category === cat && r.type === 'expense').reduce((a,b)=>a+b.amount,0);
+        const invSum = getSum('invest_stock') + getSum('invest_funds') + getSum('invest_gold') + getSum('invest_etc');
         
-        if(doughnutChart) {
-            doughnutChart.data.datasets[0].data = [
-                getCatSum('safety'),
-                investSum,
-                getCatSum('flex'),
-                getCatSum('fixed'),
-                getCatSum('lock')
-            ];
-            doughnutChart.update();
-        }
+        doughnutChart.data.datasets[0].data = [getSum('safety'), invSum, getSum('flex'), getSum('fixed'), getSum('lock')];
+        doughnutChart.update();
     }
 
+    // --- MODAL CONTROL ---
     function openModal() { document.getElementById('recordModal').style.display='flex'; document.getElementById('formDate').valueAsDate = new Date(); }
     function closeModal() { document.getElementById('recordModal').style.display='none'; }
+    function closeDetails() { document.getElementById('detailsModal').style.display='none'; }
+    function changeMonth(v) { currentDate.setMonth(currentDate.getMonth()+v); updateUI(); }
+
     function showDay(d) {
         document.getElementById('detailDateLabel').innerText = d;
         const list = records.filter(r => r.date === d);
         document.getElementById('dayList').innerHTML = list.length ? list.map(r => `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;">
-                <span>${r.title} <br><small>${catInfo[r.category]?.label || r.category}</small> <strong>(${r.amount}฿)</strong></span>
-                <button class="btn" style="padding:2px 10px; background:#ff7675; color:white; font-size:12px;" onclick="deleteRecord(${r.id})">ลบ</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #eee; padding-bottom:8px;">
+                <span>
+                    <strong>${r.title}</strong><br>
+                    <small style="color:${r.type==='income'?'green':'red'}">${r.type==='income'?'+':'-'}${r.amount.toLocaleString()} ฿</small>
+                    <small> | ${catInfo[r.category]?.label || r.category}</small>
+                </span>
+                <button class="btn" style="padding:5px 10px; background:#ff7675; color:white; font-size:11px;" onclick="deleteRecord(${r.id})">ลบ</button>
             </div>
-        `).join('') : 'ไม่มีรายการ';
+        `).join('') : 'ไม่มีรายการในวันนี้';
         document.getElementById('detailsModal').style.display='flex';
     }
-    function deleteRecord(id) {
-        records = records.filter(x => x.id !== id);
-        sync();
-        closeDetails();
-    }
-    function closeDetails() { document.getElementById('detailsModal').style.display='none'; }
-    function changeMonth(v) { currentDate.setMonth(currentDate.getMonth()+v); updateUI(); }
 
-    // Start App
+    // --- START APP ---
     window.onload = () => { 
         initCharts(); 
-        loadDataFromFirebase(); // โหลดข้อมูลจาก Cloud
+        loadDataFromFirebase(); 
     };
 </script>
 
