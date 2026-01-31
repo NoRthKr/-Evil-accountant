@@ -204,48 +204,61 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
 <script>
-  // 1. นำข้อมูลจากในภาพมาใส่ในตัวแปรนี้
-const firebaseConfig = {
-  apiKey: "AIzaSyCTQ0vitnT_jBCF4KcMm1rwTJjwb_KLejc",
-  authDomain: "evil-finance-app.firebaseapp.com",
-  databaseURL: "https://evil-finance-app-default-rtdb.asia-southeast1.firebasedatabase.app", // เพิ่มบรรทัดนี้เข้าไปด้วยนะคะ
-  projectId: "evil-finance-app",
-  storageBucket: "evil-finance-app.firebasestorage.app",
-  messagingSenderId: "205338430389",
-  appId: "1:205338430389:web:10c49d7fc0660b59ece7fc",
-  measurementId: "G-CBFDSRCK"
-};
+    // 1. Firebase Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyCTQ0vitnT_jBCF4KcMm1rwTJjwb_KLejc",
+        authDomain: "evil-finance-app.firebaseapp.com",
+        databaseURL: "https://evil-finance-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "evil-finance-app",
+        storageBucket: "evil-finance-app.firebasestorage.app",
+        messagingSenderId: "205338430389",
+        appId: "1:205338430389:web:10c49d7fc0660b59ece7fc",
+        measurementId: "G-CBFDSRCK"
+    };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-  // --- ส่วนของโค้ดโปรแกรมเดิมของคุณที่ต้องแก้ ---
-  let records = []; 
-
-  // ฟังก์ชันโหลดข้อมูลจาก Firebase เมื่อเปิดเว็บ
-  function loadDataFromFirebase() {
-      db.ref('fin_records').on('value', (snapshot) => {
-          const data = snapshot.val();
-          records = data ? Object.values(data) : [];
-          updateUI(); // ฟังก์ชันเดิมของคุณเพื่อวาดกราฟและตาราง
-      });
-  }
-
-  // แก้ฟังก์ชัน sync เดิม ให้ส่งค่าไป Firebase แทน localStorage
-  function sync() {
-      db.ref('fin_records').set(records);
-      // ไม่ต้องเขียน localStorage.setItem แล้วค่ะ
-  }
-
-  // เรียกโหลดข้อมูลเมื่อเปิดหน้าเว็บ
-  window.onload = () => {
-      initCharts();
-      loadDataFromFirebase();
-  };
+    // 2. Global Variables
     const CORRECT_PIN = "000000";
     let currentPin = "";
+    let records = []; // ตัวแปรหลักสำหรับเก็บข้อมูล
+    let currentDate = new Date();
+    let barChart, doughnutChart;
 
+    const catInfo = {
+        safety: { color: '#6C5CE7', label: 'Safety' },
+        invest_stock: { color: '#00cec9', label: 'Stock (Inv)', isInvest: true },
+        invest_funds: { color: '#0fbcf9', label: 'Funds (Inv)', isInvest: true },
+        invest_gold: { color: '#ffdd59', label: 'Gold (Inv)', isInvest: true },
+        invest_etc: { color: '#485460', label: 'Etc. (Inv)', isInvest: true },
+        flex: { color: '#fdcb6e', label: 'Flex' },
+        fixed: { color: '#ff7675', label: 'Fixed' },
+        lock: { color: '#d63031', label: 'Emergency' }
+    };
+
+    // 3. Data Logic (Firebase)
+    function loadDataFromFirebase() {
+        db.ref('fin_records').on('value', (snapshot) => {
+            const data = snapshot.val();
+            records = data ? Object.values(data) : [];
+            updateUI(); 
+        });
+    }
+
+    function sync() {
+        // บันทึกลง Firebase
+        db.ref('fin_records').set(records);
+        // สำรองไว้ในเครื่องด้วย (เผื่อฉุกเฉิน)
+        localStorage.setItem('fin_v5_recs', JSON.stringify(records));
+    }
+
+    // 4. UI Functions
     function pressNum(num) {
         if (num === 'C') { currentPin = ""; }
         else if (currentPin.length < 6) { currentPin += num; }
@@ -268,23 +281,6 @@ const db = firebase.database();
     }
     function clearPin() { currentPin = ""; updatePinDots(); }
 
-    // --- DATA LOGIC ---
-    let records = JSON.parse(localStorage.getItem('fin_v5_recs')) || [];
-    let currentDate = new Date();
-    let barChart, doughnutChart;
-
-    // ข้อมูลหมวดหมู่หลักและย่อย
-    const catInfo = {
-        safety: { color: '#6C5CE7', label: 'Safety' },
-        invest_stock: { color: '#00cec9', label: 'Stock (Inv)', isInvest: true },
-        invest_funds: { color: '#0fbcf9', label: 'Funds (Inv)', isInvest: true },
-        invest_gold: { color: '#ffdd59', label: 'Gold (Inv)', isInvest: true },
-        invest_etc: { color: '#485460', label: 'Etc. (Inv)', isInvest: true },
-        flex: { color: '#fdcb6e', label: 'Flex' },
-        fixed: { color: '#ff7675', label: 'Fixed' },
-        lock: { color: '#d63031', label: 'Emergency' }
-    };
-
     function saveRecord() {
         const r = {
             id: Date.now(),
@@ -298,11 +294,6 @@ const db = firebase.database();
         records.push(r);
         sync();
         closeModal();
-    }
-
-    function sync() {
-        localStorage.setItem('fin_v5_recs', JSON.stringify(records));
-        updateUI();
     }
 
     function updateUI() {
@@ -367,7 +358,6 @@ const db = firebase.database();
             options: { responsive: true, maintainAspectRatio: false }
         });
 
-        // กราฟวงกลมจะรวม Investing เป็นหมวดเดียวเพื่อความสวยงาม
         const ctxDonut = document.getElementById('doughnutChart').getContext('2d');
         doughnutChart = new Chart(ctxDonut, {
             type: 'doughnut',
@@ -385,24 +375,26 @@ const db = firebase.database();
     function updateCharts() {
         const mStr = currentDate.toISOString().slice(0, 7);
         const mRecs = records.filter(r => r.date.startsWith(mStr));
-        
         const inc = mRecs.filter(r => r.type === 'income').reduce((a,b)=>a+b.amount,0);
         const exp = mRecs.filter(r => r.type === 'expense').reduce((a,b)=>a+b.amount,0);
-        barChart.data.datasets[0].data = [inc, exp];
-        barChart.update();
+        if(barChart) {
+            barChart.data.datasets[0].data = [inc, exp];
+            barChart.update();
+        }
 
-        // คำนวณยอดรวมสำหรับกราฟวงกลม
         const getCatSum = (cat) => mRecs.filter(r => r.category === cat && r.type === 'expense').reduce((a,b)=>a+b.amount,0);
         const investSum = getCatSum('invest_stock') + getCatSum('invest_funds') + getCatSum('invest_gold') + getCatSum('invest_etc');
         
-        doughnutChart.data.datasets[0].data = [
-            getCatSum('safety'),
-            investSum,
-            getCatSum('flex'),
-            getCatSum('fixed'),
-            getCatSum('lock')
-        ];
-        doughnutChart.update();
+        if(doughnutChart) {
+            doughnutChart.data.datasets[0].data = [
+                getCatSum('safety'),
+                investSum,
+                getCatSum('flex'),
+                getCatSum('fixed'),
+                getCatSum('lock')
+            ];
+            doughnutChart.update();
+        }
     }
 
     function openModal() { document.getElementById('recordModal').style.display='flex'; document.getElementById('formDate').valueAsDate = new Date(); }
@@ -426,7 +418,11 @@ const db = firebase.database();
     function closeDetails() { document.getElementById('detailsModal').style.display='none'; }
     function changeMonth(v) { currentDate.setMonth(currentDate.getMonth()+v); updateUI(); }
 
-    window.onload = () => { initCharts(); updateUI(); };
+    // Start App
+    window.onload = () => { 
+        initCharts(); 
+        loadDataFromFirebase(); // โหลดข้อมูลจาก Cloud
+    };
 </script>
 
 </body>
