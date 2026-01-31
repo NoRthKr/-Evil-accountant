@@ -201,6 +201,48 @@
 </div>
 
 <script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<script>
+  // 1. นำข้อมูลจากในภาพมาใส่ในตัวแปรนี้
+const firebaseConfig = {
+  apiKey: "AIzaSyCTQ0vitnT_jBCF4KcMm1rwTJjwb_KLejc",
+  authDomain: "evil-finance-app.firebaseapp.com",
+  databaseURL: "https://evil-finance-app-default-rtdb.asia-southeast1.firebasedatabase.app", // เพิ่มบรรทัดนี้เข้าไปด้วยนะคะ
+  projectId: "evil-finance-app",
+  storageBucket: "evil-finance-app.firebasestorage.app",
+  messagingSenderId: "205338430389",
+  appId: "1:205338430389:web:10c49d7fc0660b59ece7fc",
+  measurementId: "G-CBFDSRCK"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+  // --- ส่วนของโค้ดโปรแกรมเดิมของคุณที่ต้องแก้ ---
+  let records = []; 
+
+  // ฟังก์ชันโหลดข้อมูลจาก Firebase เมื่อเปิดเว็บ
+  function loadDataFromFirebase() {
+      db.ref('fin_records').on('value', (snapshot) => {
+          const data = snapshot.val();
+          records = data ? Object.values(data) : [];
+          updateUI(); // ฟังก์ชันเดิมของคุณเพื่อวาดกราฟและตาราง
+      });
+  }
+
+  // แก้ฟังก์ชัน sync เดิม ให้ส่งค่าไป Firebase แทน localStorage
+  function sync() {
+      db.ref('fin_records').set(records);
+      // ไม่ต้องเขียน localStorage.setItem แล้วค่ะ
+  }
+
+  // เรียกโหลดข้อมูลเมื่อเปิดหน้าเว็บ
+  window.onload = () => {
+      initCharts();
+      loadDataFromFirebase();
+  };
     const CORRECT_PIN = "000000";
     let currentPin = "";
 
