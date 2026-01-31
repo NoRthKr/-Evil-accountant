@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Secure Finance Dashboard</title>
+    <title>Evil Finance Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -128,7 +128,7 @@
             <h3 id="monthLabel" style="margin:0;">เดือน</h3>
             <button class="btn" onclick="changeMonth(1)">▶</button>
         </div>
-        <button class="btn btn-primary" style="width:auto;" onclick="openModal()">➕ บันทึกข้อมูล</button>
+        <button class="btn btn-primary" style="width:auto;" onclick="openModal()">➕New Spending</button>
     </header>
 
     <main class="container">
@@ -149,16 +149,16 @@
                 <div class="chart-container"><canvas id="barChart"></canvas></div>
             </div>
             <div class="card">
-                <h3 style="margin-top:0;">🍕 Expense Mix</h3>
+                <h3 style="margin-top:0;">🍕 What's a Mix</h3>
                 <div class="chart-container"><canvas id="doughnutChart"></canvas></div>
             </div>
         </section>
 
-        <h3 style="margin-left:10px;">📂 รายการแยกหมวดหมู่</h3>
+        <h3 style="margin-left:10px;">📂 Spending Type</h3>
         <section class="grid-buckets" id="buckets"></section>
 
         <section class="card">
-            <h3 style="margin-top:0;">🗓️ ปฏิทินรายการ</h3>
+            <h3 style="margin-top:0;">🗓️ Calendar</h3>
             <div class="calendar-grid" id="calendarGrid"></div>
         </section>
     </main>
@@ -175,16 +175,16 @@
             <option value="expense">รายจ่าย (-)</option>
         </select>
         <select id="formCat">
-            <option value="income">💰 Income (รายรับหลัก)</option>
+            <option value="income">💰 Income (รายรับ)</option>
             <option value="safety">🛡️ Safety</option>
             <optgroup label="📈 Investing">
-                <option value="invest_stock">-- Stock</option>
+                <option value="invest_stock">-- Stocks</option>
                 <option value="invest_funds">-- Funds</option>
                 <option value="invest_gold">-- Gold</option>
                 <option value="invest_etc">-- Etc.</option>
             </optgroup>
-            <option value="flex">🎈 Flex</option>
-            <option value="fixed">🧾 Fixed</option>
+            <option value="flex">🎈 Flex Expense</option>
+            <option value="fixed">🧾 Fixed Expense</option>
             <option value="lock">🚑 Emergency</option>
         </select>
         <button class="btn btn-primary" onclick="saveRecord()">บันทึก</button>
@@ -201,7 +201,7 @@
 </div>
 
 <script>
-    const CORRECT_PIN = "123456";
+    const CORRECT_PIN = "000000";
     let currentPin = "";
 
     function pressNum(num) {
